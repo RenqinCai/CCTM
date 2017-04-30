@@ -13,6 +13,8 @@ import java.util.*;
  * Created by jetcai1900 on 1/2/17.
  */
 public class DCMCorrLDA_Multi_EM_test extends DCMCorrLDA_Multi_EM {
+    public double m_ksi;
+    public double m_tau;
 
     public DCMCorrLDA_Multi_EM_test(int number_of_iteration, double converge, double beta,
                                    _Corpus c, double lambda, int number_of_topics,
@@ -22,6 +24,8 @@ public class DCMCorrLDA_Multi_EM_test extends DCMCorrLDA_Multi_EM {
                 alpha, alphaC, burnIn, lag, ksi, tau, newtonIter,
                 newtonConverge);
 
+        m_ksi = ksi;
+        m_tau = tau;
     }
 
     public void printTopWords(int k, String betaFile) {
@@ -295,41 +299,6 @@ public class DCMCorrLDA_Multi_EM_test extends DCMCorrLDA_Multi_EM {
         }
     }
 
-//    protected void printParameter(_Doc d, File parentChildTopicDistributionFolder) {
-//        System.out.println("printing parameter");
-//        String topicDistributionFile = d.getName() + ".txt";
-//
-//        try {
-//
-//            PrintWriter pw = new PrintWriter(new File(
-//                    parentChildTopicDistributionFolder, topicDistributionFile));
-//
-//            if (d instanceof _ParentDoc) {
-//                pw.print(d.getName() + "\t");
-//                pw.print("topicProportion\t");
-//                for (int k = 0; k < number_of_topics; k++) {
-//                    pw.print(d.m_topics[k] + "\t");
-//                }
-//
-//                pw.println();
-//
-//                for (_ChildDoc cDoc : ((_ParentDoc) d).m_childDocs) {
-//                    pw.print(cDoc.getName() + "\t");
-//                    pw.print("topicProportion\t");
-//                    for (int k = 0; k < number_of_topics; k++) {
-//                        pw.print(cDoc.m_topics[k] + "\t");
-//                    }
-//                    pw.println();
-//                }
-//            }
-//
-//
-//            pw.flush();
-//            pw.close();
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//    }
 
     protected void printParameter(_Doc d, File parentChildTopicDistributionFolder) {
         System.out.println("printing parameter");
@@ -450,20 +419,19 @@ public class DCMCorrLDA_Multi_EM_test extends DCMCorrLDA_Multi_EM {
                     pw.println(pDoc.getName() + "\t" + pDoc.getSenetenceSize());
 
                     for (_Stn stnObj : pDoc.getSentences()) {
-                        HashMap<String, Double> likelihoodMap = rankChild4StnByLikelihood(
-                                stnObj, pDoc);
+//                        HashMap<String, Double> likelihoodMap = rankChild4StnByLikelihood(
+//                                stnObj, pDoc);
+
+                        HashMap<String, Double> likelihoodMap = rankChild4StnByCombinatorialLikelihood(stnObj, pDoc);
 
                         pw.print((stnObj.getIndex() + 1) + "\t");
                         for (String e : likelihoodMap.keySet()) {
                             pw.print(e);
                             pw.print(":" + likelihoodMap.get(e));
                             pw.print("\t");
-
-
                         }
                         pw.println();
                     }
-
                 }
             }
             pw.flush();
@@ -473,12 +441,84 @@ public class DCMCorrLDA_Multi_EM_test extends DCMCorrLDA_Multi_EM {
         }
     }
 
+    protected HashMap<String, Double> rankChild4StnByCombinatorialLikelihood(_Stn stnObj, _ParentDoc4DCM pDoc){
+        HashMap<String, Double> likelihoodMap = new HashMap<String, Double>();
+
+        for(_ChildDoc cDoc: pDoc.m_childDocs){
+            double stnLogLikelihood = 0;
+
+            double part1 = 0;
+            double part2 = 0;
+            double part3 = 0;
+
+            HashMap<Integer, Double> wordNumMap = new HashMap<Integer, Double>();
+            for(_Word w:cDoc.getWords()){
+                int wid = w.getIndex();
+                if(wordNumMap.containsKey(wid))
+                    wordNumMap.put(wid, wordNumMap.get(wid)+1);
+                else
+                    wordNumMap.put(wid, 1.0);
+            }
+
+            for(_Word w:stnObj.getWords()) {
+                int wid = w.getIndex();
+
+                String wFeature = m_corpus.getFeature(wid);
+                part1 = wordNumMap.get(wid) / (cDoc.getTotalDocLength() + m_ksi);
+                part2 = (m_ksi * m_corpus.m_featureStat.get(wFeature).getTTF()[0]) / (m_corpus.getTotalWords() * (m_ksi + cDoc.getTotalDocLength()));
+                double wordLikelihood = 0;
+                for (int k = 0; k < number_of_topics; k++) {
+                    wordLikelihood += cDoc.m_topics[k] * pDoc.m_wordTopic_prob[k][wid];
+                }
+
+                part3 = wordLikelihood;
+
+                stnLogLikelihood += Math.log(m_tau * (part1 + part2) + (1 - m_tau) * (part3));
+            }
+
+            likelihoodMap.put(cDoc.getName(), stnLogLikelihood);
+        }
+        return likelihoodMap;
+    }
+
+    protected HashMap<String, Double> rankChild4StnByLM(_Stn stnObj, _ParentDoc4DCM pDoc){
+        HashMap<String, Double> likelihoodMap = new HashMap<String, Double>();
+
+        for(_ChildDoc cDoc: pDoc.m_childDocs){
+            double stnLogLikelihood = 0;
+
+            double part1 = 0;
+            double part2 = 0;
+
+            HashMap<Integer, Double> wordNumMap = new HashMap<Integer, Double>();
+            for(_Word w:cDoc.getWords()){
+                int wid = w.getIndex();
+                if(wordNumMap.containsKey(wid))
+                    wordNumMap.put(wid, wordNumMap.get(wid)+1);
+                else
+                    wordNumMap.put(wid, 1.0);
+            }
+
+            for(_Word w:stnObj.getWords()) {
+                int wid = w.getIndex();
+
+                String wFeature = m_corpus.getFeature(wid);
+                part1 = wordNumMap.get(wid) / (cDoc.getTotalDocLength() + m_ksi);
+                part2 = (m_ksi * m_corpus.m_featureStat.get(wFeature).getTTF()[0]) / (m_corpus.getTotalWords() * (m_ksi + cDoc.getTotalDocLength()));
+
+                stnLogLikelihood += Math.log(part1 + part2);
+            }
+
+            likelihoodMap.put(cDoc.getName(), stnLogLikelihood);
+        }
+        return likelihoodMap;
+    }
+
     protected HashMap<String, Double> rankChild4StnByLikelihood(_Stn stnObj,
                                                                 _ParentDoc4DCM pDoc) {
         HashMap<String, Double> likelihoodMap = new HashMap<String, Double>();
 
         for (_ChildDoc cDoc : pDoc.m_childDocs) {
-
             double stnLogLikelihood = 0;
             for (_Word w : stnObj.getWords()) {
                 double wordLikelihood = 0;
