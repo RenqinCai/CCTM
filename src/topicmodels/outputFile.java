@@ -6,7 +6,6 @@ import java.io.PrintWriter;
 import java.text.ParseException;
 import java.util.*;
 
-import Analyzer.topicmodelAnalyzer;
 import structures.*;
 import structures._Corpus;
 import structures._Doc;
@@ -454,9 +453,9 @@ public class outputFile {
 				"./data/Features/rawFv_%dgram_topicmodel_%s.txt", Ngram,
 				articleType);
 
-		topicmodelAnalyzer analyzer = new topicmodelAnalyzer(tokenModel, classNumber, rawFeatureFile, Ngram, lengthThreshold, rawFeatureFile);
+//		topicmodelAnalyzer analyzer = new topicmodelAnalyzer(tokenModel, classNumber, rawFeatureFile, Ngram, lengthThreshold, rawFeatureFile);
 
-//		ParentChildAnalyzer analyzer = new ParentChildAnalyzer(tokenModel, classNumber, fvFile, Ngram, lengthThreshold);
+		ParentChildAnalyzer analyzer = new ParentChildAnalyzer(tokenModel, classNumber, fvFile, Ngram, lengthThreshold);
 //		analyzer.LoadStopwords(stopwords);
 		analyzer.LoadParentDirectory(articleFolder, suffix);
 		analyzer.LoadChildDirectory(commentFolder, suffix);

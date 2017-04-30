@@ -43,7 +43,7 @@ public class CCTM_online_main {
         /*****parameters for the two-topic topic model*****/
 
         // CCTM_test, CCTM_Online_test,LDAGibbs4AC_test
-        String topicmodel = "LDAGibbs4AC_test";
+        String topicmodel = "CCTM_test";
 
         String category = "tablet";
         int number_of_topics = 20;
@@ -57,7 +57,7 @@ public class CCTM_online_main {
         double varConverge = 1e-5;
         int topK = 20, number_of_iteration = 200, crossV = 1;
 
-        int gibbs_iteration = 500, gibbs_lag = 15;
+        int gibbs_iteration = 300, gibbs_lag = 20;
         int displayLap = 10;
 
 //		gibbs_iteration = 4;
@@ -79,7 +79,7 @@ public class CCTM_online_main {
         String amazonFolder = "./data/amazon/tablet/topicmodel";
         String newEggFolder = "./data/NewEgg";
         String articleType = "Tech";
-		articleType = "Medium";
+//		articleType = "Medium";
 
 
         String articleFolder = String.format(
@@ -225,18 +225,7 @@ public class CCTM_online_main {
                         beta - 1, c, lambda, number_of_topics, alpha - 1,
                         alphaC, burnIn, gibbs_lag, ksi, tau, newtonIter,
                         newtonConverge);
-            } else if(topicmodel.equals("weightedCorrespondenceModel_test")){
-                beta = beta-1;
-                alpha = alpha-1;
-//				number_of_iteration = 2;
-                double lbfgsConverge = varConverge;
-                converge = 1e-6;
-                model = new weightedCorrespondenceModel_test(number_of_iteration, converge, beta, c,
-                        lambda, number_of_topics, alpha, varIter, varConverge, lbfgsConverge);
-//
-//				String priorFile = "./data/Features/" + articleType + "TopicWord.txt";
-//				model.LoadPrior(priorFile, eta);eta
-            }else if(topicmodel.equals("CorrDCMLDA_test")){
+            } else if(topicmodel.equals("CorrDCMLDA_test")){
                 converge = 1e-4;
                 int newtonIter = 50;
                 double newtonConverge = 1e-3;
