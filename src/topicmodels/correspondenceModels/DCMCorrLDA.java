@@ -160,7 +160,7 @@ public class DCMCorrLDA extends DCMLDA4AC {
 		}
 
 		initialAlphaBeta();
-		// imposePrior();
+		imposePrior();
 
 	}
 
@@ -426,7 +426,7 @@ public class DCMCorrLDA extends DCMLDA4AC {
 		m_totalAlpha = 0;
 		for(int k=0; k<number_of_topics; k++){
 			m_totalAlpha += m_alpha[k];
-			System.out.println("alpha\t"+m_alpha[k]);
+//			System.out.println("alpha\t"+m_alpha[k]);
 		}
 	}
 	

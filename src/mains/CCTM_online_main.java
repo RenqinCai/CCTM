@@ -42,11 +42,11 @@ public class CCTM_online_main {
 
         /*****parameters for the two-topic topic model*****/
 
-        // CCTM_test, CCTM_Online_test,LDAGibbs4AC_test
-        String topicmodel = "CCTM_test";
+        // CCTM_test, CCTM_Online_test,LDAGibbs4AC_test, CorrDCMLDA_test (CorrLDA+), PriorCorrLDA_test (CCTM-), CorrLDA, SCTM
+        String topicmodel = "PriorCorrLDA_test";
 
         String category = "tablet";
-        int number_of_topics = 20;
+        int number_of_topics = 15;
         boolean loadNewEggInTrain = true; // false means in training there is no reviews from NewEgg
         boolean setRandomFold = true; // false means no shuffling and true means shuffling
         int loadAspectSentiPrior = 0; // 0 means nothing loaded as prior; 1 = load both senti and aspect; 2 means load only aspect
@@ -57,7 +57,7 @@ public class CCTM_online_main {
         double varConverge = 1e-5;
         int topK = 20, number_of_iteration = 200, crossV = 1;
 
-        int gibbs_iteration = 300, gibbs_lag = 20;
+        int gibbs_iteration = 500, gibbs_lag = 15;
         int displayLap = 10;
 
 //		gibbs_iteration = 4;
@@ -184,15 +184,15 @@ public class CCTM_online_main {
                         lambda, number_of_topics, alpha-1, burnIn, gibbs_lag);
             }  else if (topicmodel.equals("LDAGibbs4AC_test")) {
 
-                double ksi = 800;
-                double tau = 0.7;
+                double ksi = 100;
+                double tau = 0.9;
                 model = new LDAGibbs4AC_test(gibbs_iteration, 0, beta-1, c,
                         lambda, number_of_topics, alpha-1, burnIn, gibbs_lag,
                         ksi, tau);
 
             } else if (topicmodel.equals("corrLDA_Gibbs_test")) {
                 converge = 1e-3;
-                double ksi = 800;
+                double ksi = 100;
                 double tau = 0.7;
                 int newtonIter = 1000;
                 double newtonConverge = 1e-3;
@@ -241,8 +241,8 @@ public class CCTM_online_main {
                 int newtonIter = 100;
                 double newtonConverge = 1e-3;
 
-                double ksi = 800;
-                double tau = 0.7;
+                double ksi = 72;
+                double tau = 0.78;
                 double alphaC = 0.001;
                 model = new DCMCorrLDA_Multi_EM_test(gibbs_iteration, converge, beta - 1, c,
                         lambda, number_of_topics, alpha - 1, alphaC, burnIn, ksi, tau, gibbs_lag,

@@ -15,6 +15,7 @@ public class LDAGibbs4AC_test extends LDAGibbs4AC {
 
 	languageModelBaseLine m_LM;
 	protected double m_tau;
+	double m_ksi;
 	
 	public LDAGibbs4AC_test(int number_of_iteration, double converge,
 			double beta, _Corpus c, double lambda, int number_of_topics,
@@ -24,6 +25,7 @@ public class LDAGibbs4AC_test extends LDAGibbs4AC {
 
 		m_LM = new languageModelBaseLine(c, ksi);
 		m_tau = tau;
+		m_ksi = ksi;
 
 	}
 
@@ -424,40 +426,12 @@ public class LDAGibbs4AC_test extends LDAGibbs4AC {
 
 			if (d instanceof _ParentDoc) {
 				pw.print(d.getName() + "\t");
-//				Date dateFormat = new Date(d.getTimeStamp());
-//				SimpleDateFormat df2 = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss");
-//				String dateText = df2.format(dateFormat);
-//				pw.print("time\t"+dateText+"\t topicProportion\t");
 				pw.print("topicProportion\t");
 				for (int k = 0; k < number_of_topics; k++) {
 					pw.print(d.m_topics[k] + "\t");
 				}
 
 				pw.println();
-
-//				TreeMap<Long, _ChildDoc> timeChildDocMap = new TreeMap<Long, _ChildDoc>();
-//				for (_ChildDoc cDoc : ((_ParentDoc) d).m_childDocs){
-//					long cDocDate = cDoc.getTimeStamp();
-//					if(timeChildDocMap.containsKey(cDocDate)){
-//						System.out.print("duplicate time");
-//					}else{
-//						timeChildDocMap.put(cDocDate, cDoc);
-//					}
-//
-//				}
-
-//				for(long cDocDate:timeChildDocMap.keySet()){
-//					_ChildDoc cDoc = timeChildDocMap.get(cDocDate);
-//					pw.print(cDoc.getName()+"\t");
-//					Date cdateFormat = new Date(cDocDate);
-//					SimpleDateFormat cdf2 = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss");
-//					String cdateText = cdf2.format(cdateFormat);
-//					pw.print("time\t"+cdateText+"\t topicProportion\t");
-//					for (int k = 0; k < number_of_topics; k++) {
-//						pw.print(cDoc.m_topics[k] + "\t");
-//					}
-//					pw.println();
-//				}
 
 				for (_ChildDoc cDoc : ((_ParentDoc) d).m_childDocs) {
 					pw.print(cDoc.getName() + "\t");
@@ -701,6 +675,51 @@ public class LDAGibbs4AC_test extends LDAGibbs4AC {
 		return childLikelihoodMap;
 	}
 
+	protected HashMap<String, Double> rankChild4StnByCombinatorialLikelihood(_Stn stnObj, _ParentDoc pDoc){
+		HashMap<String, Double> likelihoodMap = new HashMap<String, Double>();
+
+		for(_ChildDoc cDoc: pDoc.m_childDocs){
+			double stnLogLikelihood = 0;
+
+			double part1 = 0;
+			double part2 = 0;
+			double part3 = 0;
+
+			HashMap<Integer, Double> wordNumMap = new HashMap<Integer, Double>();
+			for(_Word w:cDoc.getWords()){
+				int wid = w.getIndex();
+				if(wordNumMap.containsKey(wid))
+					wordNumMap.put(wid, wordNumMap.get(wid)+1);
+				else
+					wordNumMap.put(wid, 1.0);
+			}
+
+			for(_Word w:stnObj.getWords()) {
+				int wid = w.getIndex();
+
+				String wFeature = m_corpus.getFeature(wid);
+				double wordNumInCMNT = 0;
+				if(wordNumMap.containsKey(wid))
+					wordNumInCMNT = wordNumMap.get(wid);
+
+				part1 = wordNumInCMNT / (cDoc.getTotalDocLength() + m_ksi);
+				part2 = (m_ksi * m_corpus.m_featureStat.get(wFeature).getTTF()[0]) / (m_corpus.getTotalWords() * (m_ksi + cDoc.getTotalDocLength()));
+				double wordLikelihood = 0;
+				for (int k = 0; k < number_of_topics; k++) {
+					wordLikelihood += topic_term_probabilty[k][wid]
+							* cDoc.m_topics[k];;
+				}
+
+				part3 = wordLikelihood;
+
+				stnLogLikelihood += Math.log(m_tau * (part1 + part2) + (1 - m_tau) * (part3));
+			}
+
+			likelihoodMap.put(cDoc.getName(), stnLogLikelihood);
+		}
+		return likelihoodMap;
+	}
+
 	// stn is a query, retrieve comment by likelihood
 	protected HashMap<String, Double> rankChild4StnByLikelihood(_Stn stnObj,
 			_ParentDoc pDoc) {
@@ -873,6 +892,7 @@ public class LDAGibbs4AC_test extends LDAGibbs4AC {
 
 				pw.flush();
 				pw.close();
+
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -1066,11 +1086,11 @@ public class LDAGibbs4AC_test extends LDAGibbs4AC {
 	}
 
 	protected void printTopKChild4Stn(String filePrefix, int topK) {
-		String topKChild4StnFile = filePrefix + "topChild4Stn.txt";
-		try {
-			PrintWriter pw = new PrintWriter(new File(topKChild4StnFile));
+		String topKChild4StnLDAFile = filePrefix + "topChild4Stn_LDA.txt";
+		String topKChild4StnLDALMFile = filePrefix + "topChild4Stn_LDA_LM.txt";
 
-			// m_LM.generateReferenceModel();
+		try {
+			PrintWriter pw = new PrintWriter(new File(topKChild4StnLDAFile));
 
 			for (_Doc d : m_trainSet) {
 				if (d instanceof _ParentDoc) {
@@ -1081,10 +1101,6 @@ public class LDAGibbs4AC_test extends LDAGibbs4AC {
 					for (_Stn stnObj : pDoc.getSentences()) {
 						HashMap<String, Double> likelihoodMap = rankChild4StnByLikelihood(
 								stnObj, pDoc);
-						// HashMap<String, Double> likelihoodMap =
-						// rankChild4StnByHybrid(stnObj, pDoc);
-						// HashMap<String, Double> likelihoodMap =
-						// rankChild4StnByLanguageModel(stnObj, pDoc);
 
 						int i = 0;
 						pw.print((stnObj.getIndex() + 1) + "\t");
@@ -1106,6 +1122,39 @@ public class LDAGibbs4AC_test extends LDAGibbs4AC {
 			}
 			pw.flush();
 			pw.close();
+
+			PrintWriter LDALMPW = new PrintWriter(new File(topKChild4StnLDALMFile));
+
+			for (_Doc d : m_trainSet) {
+				if (d instanceof _ParentDoc) {
+					_ParentDoc pDoc = (_ParentDoc) d;
+
+					LDALMPW.println(pDoc.getName() + "\t" + pDoc.getSenetenceSize());
+
+					for (_Stn stnObj : pDoc.getSentences()) {
+						HashMap<String, Double> likelihoodMap = rankChild4StnByCombinatorialLikelihood(
+								stnObj, pDoc);
+
+						int i = 0;
+						LDALMPW.print((stnObj.getIndex() + 1) + "\t");
+
+						for (Map.Entry<String, Double> e : sortHashMap4String(
+								likelihoodMap, true)) {
+							// if(i==topK)
+							// break;
+							LDALMPW.print(e.getKey());
+							LDALMPW.print(":" + e.getValue());
+							LDALMPW.print("\t");
+
+							i++;
+						}
+						LDALMPW.println();
+
+					}
+				}
+			}
+			LDALMPW.flush();
+			LDALMPW.close();
 
 		} catch (Exception e) {
 			e.printStackTrace();

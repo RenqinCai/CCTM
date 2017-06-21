@@ -44,8 +44,11 @@ public class DCMCorrLDA_Multi_EM_test extends DCMCorrLDA_Multi_EM {
         String alphaFile = betaFile.replace("topWords.txt", "alphas.txt");
         printTopAlphas(alphaFile);
 
-        betaFile = betaFile.replace("topWords.txt", "fullBetas.txt");
-        printTopBeta(betaFile);
+        String fullBetaFile = betaFile.replace("topWords.txt", "fullBetas.txt");
+        printFullBeta(fullBetaFile);
+
+        betaFile = betaFile.replace("topWords.txt", "topBetas.txt");
+        printTopBeta(k, betaFile);
 
     }
 
@@ -635,7 +638,47 @@ public class DCMCorrLDA_Multi_EM_test extends DCMCorrLDA_Multi_EM {
         }
     }
 
-    protected void printTopBeta(String betaFile) {
+    protected void printTopBeta(int topK, String betaFile) {
+        Arrays.fill(m_sstat, 0);
+
+        System.out.println("print top words");
+        for (_Doc d : m_trainSet) {
+            for (int i = 0; i < number_of_topics; i++)
+                m_sstat[i] += m_logSpace ? Math.exp(d.m_topics[i])
+                        : d.m_topics[i];
+        }
+
+        Utils.L1Normalization(m_sstat);
+
+        try {
+            System.out.println("top word file");
+            PrintWriter betaOut = new PrintWriter(new File(betaFile));
+            for (int i = 0; i < m_topic_word_prob.length; i++) {
+                MyPriorityQueue<_RankItem> fVector = new MyPriorityQueue<_RankItem>(
+                        topK);
+                for (int j = 0; j < vocabulary_size; j++)
+                    fVector.add(new _RankItem(m_corpus.getFeature(j),
+                            m_beta[i][j]));
+
+                betaOut.format("Topic %d(%.3f):\t", i, m_sstat[i]);
+                for (_RankItem it : fVector) {
+                    betaOut.format("%s(%.3f)\t", it.m_name,
+                            m_logSpace ? Math.exp(it.m_value) : it.m_value);
+                    System.out.format("%s(%.3f)\t", it.m_name,
+                            m_logSpace ? Math.exp(it.m_value) : it.m_value);
+                }
+                betaOut.println();
+                System.out.println();
+            }
+
+            betaOut.flush();
+            betaOut.close();
+        } catch (Exception ex) {
+            System.err.print("File Not Found");
+        }
+    }
+
+    protected void printFullBeta(String betaFile) {
         try {
             PrintWriter pw = new PrintWriter(new File(betaFile));
 

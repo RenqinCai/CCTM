@@ -17,11 +17,17 @@ import structures._Word;
 import utils.Utils;
 
 public class corrLDA_Gibbs_test extends corrLDA_Gibbs {
+	double m_ksi;
+	double m_tau;
+
 	public corrLDA_Gibbs_test(int number_of_iteration, double converge,
 			double beta, _Corpus c, double lambda, int number_of_topics,
 			double alpha, double burnIn, int lag, double ksi, double tau) {
 		super( number_of_iteration,  converge,  beta,  c,  lambda,
 				 number_of_topics,  alpha,  burnIn,  lag);
+
+		m_ksi = ksi;
+		m_tau = tau;
 			
 	}
 	
@@ -394,7 +400,7 @@ public class corrLDA_Gibbs_test extends corrLDA_Gibbs {
 	}
 
 	protected void printTopKChild4Stn(String filePrefix, int topK) {
-		String topKChild4StnFile = filePrefix + "topChild4Stn.txt";
+		String topKChild4StnFile = filePrefix + "topChild4Stn_CorrLDA.txt";
 
 		try {
 			PrintWriter pw = new PrintWriter(new File(topKChild4StnFile));
@@ -424,6 +430,35 @@ public class corrLDA_Gibbs_test extends corrLDA_Gibbs {
 			}
 			pw.flush();
 			pw.close();
+
+			String topKChild4StnCorrLDALMFile = filePrefix+"topChild4Stn_CorrLDA_LM.txt";
+			PrintWriter CorrLDALMPW = new PrintWriter(new File(topKChild4StnCorrLDALMFile));
+
+			for (_Doc d : m_trainSet) {
+				if (d instanceof _ParentDoc4DCM) {
+					_ParentDoc4DCM pDoc = (_ParentDoc4DCM) d;
+
+					CorrLDALMPW.println(pDoc.getName() + "\t" + pDoc.getSenetenceSize());
+
+					for (_Stn stnObj : pDoc.getSentences()) {
+						HashMap<String, Double> likelihoodMap = rankChild4StnByCombinatorialLikelihood(
+								stnObj, pDoc);
+
+						CorrLDALMPW.print((stnObj.getIndex() + 1) + "\t");
+
+						for (String e : likelihoodMap.keySet()) {
+							CorrLDALMPW.print(e);
+							CorrLDALMPW.print(":" + likelihoodMap.get(e));
+							CorrLDALMPW.print("\t");
+
+						}
+						CorrLDALMPW.println();
+					}
+				}
+			}
+			CorrLDALMPW.flush();
+			CorrLDALMPW.close();
+
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -450,6 +485,51 @@ public class corrLDA_Gibbs_test extends corrLDA_Gibbs {
 			likelihoodMap.put(cDoc.getName(), stnLogLikelihood);
 		}
 
+		return likelihoodMap;
+	}
+
+	protected HashMap<String, Double> rankChild4StnByCombinatorialLikelihood(_Stn stnObj, _ParentDoc pDoc){
+		HashMap<String, Double> likelihoodMap = new HashMap<String, Double>();
+
+		for(_ChildDoc cDoc: pDoc.m_childDocs){
+			double stnLogLikelihood = 0;
+
+			double part1 = 0;
+			double part2 = 0;
+			double part3 = 0;
+
+			HashMap<Integer, Double> wordNumMap = new HashMap<Integer, Double>();
+			for(_Word w:cDoc.getWords()){
+				int wid = w.getIndex();
+				if(wordNumMap.containsKey(wid))
+					wordNumMap.put(wid, wordNumMap.get(wid)+1);
+				else
+					wordNumMap.put(wid, 1.0);
+			}
+
+			for(_Word w:stnObj.getWords()) {
+				int wid = w.getIndex();
+
+				String wFeature = m_corpus.getFeature(wid);
+				double wordNumInCMNT = 0;
+				if(wordNumMap.containsKey(wid))
+					wordNumInCMNT = wordNumMap.get(wid);
+
+				part1 = wordNumInCMNT / (cDoc.getTotalDocLength() + m_ksi);
+				part2 = (m_ksi * m_corpus.m_featureStat.get(wFeature).getTTF()[0]) / (m_corpus.getTotalWords() * (m_ksi + cDoc.getTotalDocLength()));
+				double wordLikelihood = 0;
+				for (int k = 0; k < number_of_topics; k++) {
+					wordLikelihood += topic_term_probabilty[k][wid]
+							* cDoc.m_topics[k];;
+				}
+
+				part3 = wordLikelihood;
+
+				stnLogLikelihood += Math.log(m_tau * (part1 + part2) + (1 - m_tau) * (part3));
+			}
+
+			likelihoodMap.put(cDoc.getName(), stnLogLikelihood);
+		}
 		return likelihoodMap;
 	}
 
